@@ -1,5 +1,5 @@
 const PREFIX = 'badminton:' + self.registration.scope + ':';
-const CACHE = PREFIX + '2.1.0';
+const CACHE = PREFIX + '2.2.0';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 const urls = FILES.map(file => new URL(file, self.registration.scope).href);
 self.addEventListener('install', event => {

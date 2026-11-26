@@ -1,12 +1,44 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><title>羽球课时账本</title><style>
 *{box-sizing:border-box}body{margin:0;background:#f4f3f8;color:#242137;font:16px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}main{max-width:540px;margin:auto;padding:24px 16px 40px}h1{font-size:24px;margin:0 0 5px}p{line-height:1.6}small,.muted{color:#706b80;font-size:13px}.hero{background:#59478f;color:white;border-radius:22px;padding:24px;margin:20px 0}.hero small{color:#e5def6}.number{font-size:64px;font-weight:700;line-height:1.3}.stats{display:flex;justify-content:space-between;border-top:1px solid #ffffff44;padding-top:14px}.card{background:white;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 3px 14px #29204109}h2{font-size:17px;margin:0 0 14px}button,input,select{font:inherit;border-radius:10px;padding:12px;border:1px solid #dedbe6;min-width:0}button{cursor:pointer;background:#f2eff9;color:#59478f;font-weight:600}button.primary{background:#59478f;color:white;border:none;width:100%;padding:15px}button:active{opacity:.7}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:13px;color:#706b80;margin:10px 0 5px}input,select{width:100%;background:white;color:#242137}.line{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid #eee}.line:last-child{border:0}.grow{flex:1;min-width:0;overflow-wrap:anywhere}.delta{font-weight:700;white-space:nowrap}.del{font-size:12px;padding:7px;background:white;color:#8b6570}.warn{color:#ffe3a1;font-size:14px;margin:8px 0}.tools{display:flex;gap:8px;flex-wrap:wrap}.tools button{font-size:13px}.error{color:#a32626}details summary{cursor:pointer;font-weight:600}#status{font-size:13px;color:#59478f;min-height:20px} .hidden{display:none}
-main{padding:calc(24px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}button,input,select{min-height:44px}summary{min-height:44px;line-height:44px}.presets[hidden]{display:none}.presets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px}
-</style><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png"><meta name="theme-color" content="#59478f"></head><body><main><h1>羽球课时账本</h1><div class="muted">每一次训练，都有记录。</div><section class="hero"><small>当前剩余课时</small><div class="number"><span id="balance">22</span><span style="font-size:22px"> 节</span></div><div id="warning" class="warn" aria-live="polite"></div><div class="stats"><div><small>累计新购</small><br><strong id="bought">0</strong> 节</div><div><small>累计消课</small><br><strong id="used">0</strong> 节</div><div><small>起始余额</small><br><strong>22</strong> 节</div></div></section>
-<section class="card"><h2>快速记课</h2><form id="entry"><label for="date">上课日期</label><input id="date" type="date" required><label for="kind">类型</label><select id="kind"><option value="lesson">正常上课</option><option value="makeup">补课</option><option value="gift">赠送课（不扣课时）</option></select><label for="qty">实际扣除课时（不扣填 0）</label><div class="presets" id="presets"><button type="button" data-qty="0.5">0.5</button><button type="button" data-qty="1">1</button><button type="button" data-qty="1.5">1.5</button><button type="button" data-qty="2">2</button></div><input id="qty" type="number" min="0" max="100" step="0.01" value="1" required><label for="note">备注（选填）</label><input id="note" maxlength="200" placeholder="例如：步法、后场高远球"><p><button class="primary" type="submit">确认记课</button></p></form><div id="status" role="status"></div></section>
-<section class="card"><details><summary>续购课时 / 增加课时</summary><form id="purchase"><label for="pdate">购课日期</label><input id="pdate" type="date" required><div class="grid"><div><label for="pqty">新增课时</label><input id="pqty" type="number" min="0.01" max="10000" step="0.01" required></div><div><label for="money">实付金额（元，选填）</label><input id="money" type="number" min="0" step="0.01"></div></div><label for="pnote">备注（选填）</label><input id="pnote" maxlength="200"><p><button class="primary">确认新增课时</button></p></form></details></section>
-<section class="card"><h2>历史流水 <small id="recordCount"></small></h2><label for="filter">搜索日期、类型或备注</label><input id="filter" type="search"><div id="history"></div></section><section class="card"><h2>数据备份</h2><div class="tools"><button id="export">导出备份</button><button id="csv">导出 Excel 可读 CSV</button><button id="import">恢复备份</button></div><input id="file" type="file" accept=".json,application/json" class="hidden"><p class="muted">记录仅保存在当前浏览器，不会自动跨设备同步。请定期导出 JSON 备份；恢复备份会替换当前记录。隐私模式、清理浏览器数据或某些本地文件预览器可能无法长期保存。</p><div id="storage" class="error" role="alert"></div></section></main><script>
+main{padding:calc(24px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}button,input,select{min-height:44px}summary{min-height:44px;line-height:44px}
+
+.hero{padding:16px 18px;margin:14px 0}.number{font-size:48px}.warn:empty{display:none}
+main{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+input[type=date],input[type=month]{display:block;min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;text-align:left}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #dedbe6;padding:6px max(12px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));z-index:1}
+.nav-inner{max-width:508px;margin:auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+nav button{padding:6px 2px;border-color:transparent;background:#fff}
+nav button[aria-current=page]{background:#f2eff9;border-color:#dedbe6}
+.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center;margin:10px 0}
+.day{font-variant-numeric:tabular-nums;padding:7px 0;border-radius:8px;background:#f5f3fa}
+.day.trained{background:#59478f;color:#fff}.day.today{outline:2px solid #836bc4;outline-offset:-2px}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0}.metrics dd{margin:4px 0;font-weight:700}
+#quick:disabled{opacity:.65;cursor:default}
+</style><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png"><meta name="theme-color" content="#59478f"></head><body><main><h1>羽球课时账本</h1><div id="home-panel">
+<section class="hero"><small>剩余课时</small><div class="number"><span id="balance">22</span><span style="font-size:20px"> 节</span></div>
+<div class="stats"><div><small>累计消课</small><br><strong id="used">0</strong> 节</div><div><small>预计剩余训练周数</small><br><strong id="weeks">22</strong> 周</div></div>
+<div id="warning" class="warn" aria-live="polite"></div></section>
+<section class="card"><h2 id="week-state">本周训练</h2><div id="week-calendar" class="calendar" aria-label="本周训练日历"></div>
+<button class="primary" type="button" id="quick">完成今日训练 · −1节</button>
+<p><button type="button" id="undo-today" hidden>撤销今日记课</button></p></section>
+</div>
+<div id="stats-panel" hidden>
+<section class="card"><h2>训练统计</h2><dl class="metrics">
+<div><dt>本周训练</dt><dd id="stats-week"></dd></div><div><dt>连续完成</dt><dd id="streak"></dd></div>
+<div><dt>本月训练</dt><dd id="month-count"></dd></div><div><dt>年度训练</dt><dd id="year-count"></dd></div>
+<div><dt>距离上次训练</dt><dd id="since"></dd></div><div><dt>预计课时耗尽</dt><dd id="depletion"></dd></div></dl>
+<p class="muted">按每周训练 1 节估算，日期仅用于规划。剩余训练周数按可完整消耗的课时计算。</p></section>
+<section class="card"><h2>训练日历</h2><label for="calendar-month">选择月份</label><input type="month" id="calendar-month">
+<div id="month-calendar" class="calendar" aria-label="月度训练日历"></div><small>紫色表示当天有训练流水。</small></section></div>
+<div id="history-panel" hidden><section class="card"><details><summary>高级登记</summary><form id="entry"><label for="date">上课日期</label><input id="date" type="date" required><label for="kind">类型</label><select id="kind"><option value="lesson">正常上课</option><option value="makeup">补课</option><option value="gift">赠送课（不扣课时）</option></select><label for="qty">实际扣除课时（不扣填 0）</label><input id="qty" type="number" min="0" max="100" step="1" value="1" required><label for="note">备注（选填）</label><input id="note" maxlength="200" placeholder="例如：步法、后场高远球"><p><button class="primary" type="submit">确认记课</button></p></form></details></section>
+<section class="card"><h2>历史流水 <small id="recordCount"></small></h2><label for="filter">搜索日期、类型或备注</label><input id="filter" type="search"><div id="history"></div></section></div><div id="settings-panel" hidden><section class="card"><details><summary>续购课时 / 增加课时</summary><form id="purchase"><label for="pdate">购课日期</label><input id="pdate" type="date" required><div class="grid"><div><label for="pqty">新增课时</label><input id="pqty" type="number" min="0.01" max="10000" step="0.01" required></div><div><label for="money">实付金额（元，选填）</label><input id="money" type="number" min="0" step="0.01"></div></div><label for="pnote">备注（选填）</label><input id="pnote" maxlength="200"><p><button class="primary">确认新增课时</button></p></form></details></section>
+<section class="card"><h2>数据备份</h2><div class="tools"><button id="export">导出备份</button><button id="csv">导出 Excel 可读 CSV</button><button id="import">恢复备份</button></div><input id="file" type="file" accept=".json,application/json" class="hidden"><p class="muted">记录仅保存在当前浏览器，不会自动跨设备同步。请定期导出 JSON 备份；恢复备份会替换当前记录。隐私模式、清理浏览器数据或某些本地文件预览器可能无法长期保存。</p></section></div><div id="status" role="status"></div><div id="storage" class="error" role="alert"></div></main>
+<nav aria-label="底部导航"><div class="nav-inner"><button id="nav-home" aria-current="page">首页</button><button id="nav-stats">统计</button><button id="nav-history">流水</button><button id="nav-settings">购课与备份</button></div></nav><script>
 'use strict';const $=id=>document.getElementById(id), KEY='zy-personal-lessons-v1';let records=[];let storageOK=true;function valid(a){return Array.isArray(a)&&a.every(r=>r&&typeof r.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(r.date)&&['lesson','makeup','gift','purchase'].includes(r.kind)&&Number.isFinite(r.qty)&&r.qty>=0&&Math.abs(Math.round(r.qty*100)-r.qty*100)<1e-7&&(r.kind!=='purchase'||r.qty>0)&&(r.kind!=='gift'||r.qty===0)&&typeof r.note==='string'&&(r.money===null||(Number.isFinite(r.money)&&r.money>=0)))&&new Set(a.map(r=>r.id)).size===a.length}try{let v=localStorage.getItem(KEY);if(v){let a=JSON.parse(v);if(!valid(a))throw Error();records=a}}catch(e){storageOK=false;$('storage').textContent='无法读取本地账本。当前记录受保护，请检查浏览器存储或从已有备份恢复。'}
-function today(){let d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`} $('date').value=$('pdate').value=today();const names={lesson:'正常上课',makeup:'补课',gift:'赠送课',purchase:'续购 / 新增'};function sums(){let b=0,u=0;for(const r of records){if(r.kind==='purchase')b+=Math.round(r.qty*100);else u+=Math.round(r.qty*100)}return {b:b/100,u:u/100,bal:(2200+b-u)/100}}
+function dateKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function today(){return dateKey(new Date())}
+$('date').value=$('pdate').value=today();
+$('calendar-month').value=today().slice(0,7);const names={lesson:'正常上课',makeup:'补课',gift:'赠送课',purchase:'续购 / 新增'};function sums(){let b=0,u=0;for(const r of records){if(r.kind==='purchase')b+=Math.round(r.qty*100);else u+=Math.round(r.qty*100)}return {b:b/100,u:u/100,bal:(2200+b-u)/100}}
 function save(next,restore=false){
   if(!storageOK&&!restore)return false;
   try{
@@ -21,4 +53,98 @@ function save(next,restore=false){
   render();
   return true;
 }
-function el(tag,txt,cls){let n=document.createElement(tag);n.textContent=txt;if(cls)n.className=cls;return n}function render(){let {b,u,bal}=sums();$('balance').textContent=bal;$('bought').textContent=b;$('used').textContent=u;$('warning').textContent=bal<0?'已超课 '+(-bal)+' 节，请核对并续费。':bal===0?'课时已用完，请先核对续费。':bal<=1?'剩余 1 节以内，请尽快续费。':bal<=3?'剩余不足或等于 3 节，请与教练核对。':bal<=5?'剩余不多，注意续费。':'';$('recordCount').textContent=records.length+' 条';let h=$('history');h.replaceChildren();if(!records.length)h.append(el('p','还没有新记录，历史超课已计入起始余额。','muted'));const query=$('filter').value.trim().toLowerCase();const matches=records.filter(r=>[r.date,names[r.kind],r.note].some(v=>v.toLowerCase().includes(query)));if(records.length&&!matches.length)h.append(el('p','没有匹配的流水。','muted'));matches.reverse().sort((a,b)=>b.date.localeCompare(a.date)).forEach(r=>{let row=el('div','','line'),g=el('div','','grow');g.append(el('strong',names[r.kind]),el('div',r.date+(r.note?' · '+r.note:'')+(r.money!==null?' · ¥'+r.money:''),'muted'));let del=el('button','撤销','del');del.onclick=()=>{if(confirm('撤销此条流水并重新计算余额？')){if(save(records.filter(x=>x.id!==r.id)))$('status').textContent='已撤销流水'}};row.append(g,el('span',(r.kind==='purchase'?'+':r.qty?'-':'')+r.qty+' 节','delta'),del);h.append(row)})}function add(r){r.id=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);if(!save([...records,r]))return false;$('status').textContent='已登记并保存 · 剩余 '+sums().bal+' 节';return true}$('filter').oninput=render;for(const button of $('presets').querySelectorAll('button'))button.onclick=()=>{$('qty').value=button.dataset.qty};$('kind').onchange=()=>{$('qty').value=$('kind').value==='gift'||$('kind').value==='makeup'?'0':'1';$('qty').readOnly=$('presets').hidden=$('kind').value==='gift'};$('entry').onsubmit=e=>{e.preventDefault();let q=Number($('qty').value),kind=$('kind').value,date=$('date').value;if(kind==='lesson'&&q===0&&!confirm('本次正常上课不扣课时，是否确认？'))return;if(q>sums().bal&&q>0&&!confirm('本次登记将导致超课，仍要记录实际发生的课程吗？'))return;if(records.some(r=>r.date===date&&r.kind===kind&&r.qty===q)&&!confirm('当天已有相同类型和课时的记录，确定不是重复登记？'))return;if(add({date,kind,qty:q,note:$('note').value,money:null}))$('note').value=''};$('purchase').onsubmit=e=>{e.preventDefault();const date=$('pdate').value,qty=Number($('pqty').value),money=$('money').value===''?null:Number($('money').value);if(records.some(r=>r.kind==='purchase'&&r.date===date&&r.qty===qty&&r.money===money)&&!confirm('当天已有相同课时和金额的购课记录，仍要登记吗？'))return;if(!add({date,kind:'purchase',qty,money,note:$('pnote').value}))return;$('purchase').reset();$('pdate').value=today()};function dl(name,content,type){let u=URL.createObjectURL(new Blob([content],{type}));let a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}$('export').onclick=()=>dl('羽球课时备份-'+today()+'.json',JSON.stringify({version:1,initial:22,records},null,2),'application/json');$('csv').onclick=()=>{let esc=v=>'"'+String(v??'').replace(/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/,"'$&").replace(/"/g,'""')+'"';let lines=[['日期','类型','新增课时','扣除课时','金额','备注'],['','起始余额',22,0,'','已抵消历史超课'],...records.map(r=>[r.date,names[r.kind],r.kind==='purchase'?r.qty:0,r.kind==='purchase'?0:r.qty,r.money,r.note])];dl('羽球课时流水-'+today()+'.csv','\ufeff'+lines.map(r=>r.map(esc).join(',')).join('\r\n'),'text/csv;charset=utf-8')};$('import').onclick=()=>$('file').click();$('file').onchange=async()=>{try{let f=$('file').files[0];if(!f)return;let a=JSON.parse(await f.text());if(a.version!==1||a.initial!==22||!valid(a.records))throw Error();if(confirm('恢复 '+a.records.length+' 条记录并替换当前账本？')){save(a.records,true)}}catch(e){alert('备份格式不正确，未修改现有记录。')}finally{$('file').value=''}};render();</script><script>if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(console.warn);</script></body></html>
+const weekdays=['一','二','三','四','五','六','日'];
+function fromKey(key){return new Date(key+'T12:00:00')}
+function offsetDate(key,delta){
+  const date=fromKey(key);
+  date.setDate(date.getDate()+delta);
+  return dateKey(date);
+}
+function weekStart(key){return offsetDate(key,-((fromKey(key).getDay()+6)%7))}
+function isTraining(record){return record.kind!=='purchase'}
+function trainingStats(date){
+  const week=weekStart(date);
+  const training=records.filter(r=>isTraining(r)&&r.date<=date);
+  const days=new Set(training.map(r=>r.date));
+  const completedWeeks=new Set([...days].map(weekStart));
+  const complete=completedWeeks.has(week);
+  let streak=0;
+  for(let cursor=complete?week:offsetDate(week,-7);completedWeeks.has(cursor);cursor=offsetDate(cursor,-7))streak++;
+  const last=[...days].sort().pop();
+  const count=prefix=>training.filter(r=>r.date.startsWith(prefix)).length;
+  return {week,days,complete,streak,last,month:count(date.slice(0,7)),year:count(date.slice(0,4))};
+}
+function fillCalendar(node,keys,days,date){
+  node.replaceChildren(...weekdays.map(day=>el('small',day)));
+  for(const key of keys){
+    if(!key){node.append(el('span',''));continue}
+    const cell=el('span',String(Number(key.slice(-2))),'day'+(days.has(key)?' trained':'')+(key===date?' today':''));
+    cell.setAttribute('aria-label',key+(days.has(key)?' 已训练':'')+(key===date?' 今天':''));
+    node.append(cell);
+  }
+}
+function renderTraining(balance){
+  const date=today();
+  const stats=trainingStats(date);
+  const weeks=Math.max(0,Math.floor(balance));
+  const weekLabel=stats.complete?'本周已完成':'本周待训练';
+  $('weeks').textContent=weeks;
+  $('week-state').textContent=weekLabel+' · 目标 1 节';
+  $('stats-week').textContent=weekLabel;
+  $('streak').textContent=stats.streak+' 周';
+  $('month-count').textContent=stats.month+' 次';
+  $('year-count').textContent=stats.year+' 次';
+  $('since').textContent=stats.last?Math.round((Date.parse(date)-Date.parse(stats.last))/86400000)+' 天':'暂无训练';
+  const next=stats.complete?offsetDate(stats.last,7):date;
+  $('depletion').textContent=weeks?offsetDate(next,(weeks-1)*7):'当前不足 1 节';
+  const daily=records.reduce((last,r)=>isTraining(r)&&r.date===date?r:last,null);
+  $('quick').disabled=Boolean(daily);
+  $('quick').textContent=daily?'今日已记课':'完成今日训练 · −1节';
+  $('undo-today').hidden=!daily;
+  fillCalendar($('week-calendar'),weekdays.map((_,i)=>offsetDate(stats.week,i)),stats.days,date);
+  const month=$('calendar-month').value || date.slice(0,7);
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return;
+  const start=month+'-01';
+  const keys=Array((fromKey(start).getDay()+6)%7).fill(null);
+  for(let day=start;day.startsWith(month+'-');day=offsetDate(day,1))keys.push(day);
+  fillCalendar($('month-calendar'),keys,stats.days,date);
+}
+$('calendar-month').onchange=()=>renderTraining(sums().bal);
+$('quick').onclick=()=>{
+  const date=today();
+  const stats=trainingStats(date);
+  if(stats.days.has(date)){render();return}
+  const question=stats.complete?'本周已完成训练，确认登记额外训练？':'本次将产生超课，确认记课？';
+  if((stats.complete||sums().bal<1)&&!confirm(question+(stats.complete&&sums().bal<1?' 本次登记后将超课。':'')))return;
+  if(add({date,kind:'lesson',qty:1,note:'',money:null}))$('status').textContent='今日训练已保存 · 剩余 '+sums().bal+' 节';
+};
+$('undo-today').onclick=()=>{
+  const r=records.reduce((last,r)=>isTraining(r)&&r.date===today()?r:last,null);
+  if(r)undo(r);
+};
+function undo(r){
+  if(confirm('撤销此条流水并重新计算余额？')&&save(records.filter(x=>x.id!==r.id)))$('status').textContent='已撤销流水';
+}
+const panels=['home','stats','history','settings'];
+for(const panel of panels){
+  $('nav-'+panel).onclick=()=>{
+    for(const name of panels){
+      $(name+'-panel').hidden=name!==panel;
+      const button=$('nav-'+name);
+      if(name===panel)button.setAttribute('aria-current','page');
+      else button.removeAttribute('aria-current');
+    }
+    render();
+    window.scrollTo(0,0);
+  };
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
+window.addEventListener('focus',render);
+window.addEventListener('storage',event=>{
+  if(event.key!==KEY||!event.newValue)return;
+  try{
+    const next=JSON.parse(event.newValue);
+    if(valid(next)){records=next;render()}
+  }catch(e){ /* Keep the last readable ledger. */ }
+});
+function el(tag,txt,cls){let n=document.createElement(tag);n.textContent=txt;if(cls)n.className=cls;return n}function render(){let {u,bal}=sums();renderTraining(bal);$('balance').textContent=bal;$('used').textContent=u;$('warning').textContent=bal<0?'已超课 '+(-bal)+' 节，请核对并续费。':bal===0?'课时已用完，请先核对续费。':bal<=1?'剩余 1 节以内，请尽快续费。':bal<=3?'剩余不足或等于 3 节，请与教练核对。':bal<=5?'剩余不多，注意续费。':'';$('recordCount').textContent=records.length+' 条';let h=$('history');h.replaceChildren();if(!records.length)h.append(el('p','还没有新记录，历史超课已计入起始余额。','muted'));const query=$('filter').value.trim().toLowerCase();const matches=records.filter(r=>[r.date,names[r.kind],r.note].some(v=>v.toLowerCase().includes(query)));if(records.length&&!matches.length)h.append(el('p','没有匹配的流水。','muted'));matches.reverse().sort((a,b)=>b.date.localeCompare(a.date)).forEach(r=>{let row=el('div','','line'),g=el('div','','grow');g.append(el('strong',names[r.kind]),el('div',r.date+(r.note?' · '+r.note:'')+(r.money!==null?' · ¥'+r.money:''),'muted'));let del=el('button','撤销','del');del.onclick=()=>undo(r);row.append(g,el('span',(r.kind==='purchase'?'+':r.qty?'-':'')+r.qty+' 节','delta'),del);h.append(row)})}function add(r){r.id=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);if(!save([...records,r]))return false;$('status').textContent='已登记并保存 · 剩余 '+sums().bal+' 节';return true}$('filter').oninput=render;$('kind').onchange=()=>{$('qty').value=$('kind').value==='lesson'?'1':'0';$('qty').readOnly=$('kind').value==='gift'};$('entry').onsubmit=e=>{e.preventDefault();let q=Number($('qty').value),kind=$('kind').value,date=$('date').value;if(!Number.isInteger(q))return;if(kind==='lesson'&&q===0&&!confirm('本次正常上课不扣课时，是否确认？'))return;if(q>sums().bal&&q>0&&!confirm('本次登记将导致超课，仍要记录实际发生的课程吗？'))return;if(records.some(r=>r.date===date&&r.kind===kind&&r.qty===q)&&!confirm('当天已有相同类型和课时的记录，确定不是重复登记？'))return;if(add({date,kind,qty:q,note:$('note').value,money:null}))$('note').value=''};$('purchase').onsubmit=e=>{e.preventDefault();const date=$('pdate').value,qty=Number($('pqty').value),money=$('money').value===''?null:Number($('money').value);if(records.some(r=>r.kind==='purchase'&&r.date===date&&r.qty===qty&&r.money===money)&&!confirm('当天已有相同课时和金额的购课记录，仍要登记吗？'))return;if(!add({date,kind:'purchase',qty,money,note:$('pnote').value}))return;$('purchase').reset();$('pdate').value=today()};function dl(name,content,type){let u=URL.createObjectURL(new Blob([content],{type}));let a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}$('export').onclick=()=>dl('羽球课时备份-'+today()+'.json',JSON.stringify({version:1,initial:22,records},null,2),'application/json');$('csv').onclick=()=>{let esc=v=>'"'+String(v??'').replace(/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/,"'$&").replace(/"/g,'""')+'"';let lines=[['日期','类型','新增课时','扣除课时','金额','备注'],['','起始余额',22,0,'','已抵消历史超课'],...records.map(r=>[r.date,names[r.kind],r.kind==='purchase'?r.qty:0,r.kind==='purchase'?0:r.qty,r.money,r.note])];dl('羽球课时流水-'+today()+'.csv','\ufeff'+lines.map(r=>r.map(esc).join(',')).join('\r\n'),'text/csv;charset=utf-8')};$('import').onclick=()=>$('file').click();$('file').onchange=async()=>{try{let f=$('file').files[0];if(!f)return;let a=JSON.parse(await f.text());if(a.version!==1||a.initial!==22||!valid(a.records))throw Error();if(confirm('恢复 '+a.records.length+' 条记录并替换当前账本？')){save(a.records,true)}}catch(e){alert('备份格式不正确，未修改现有记录。')}finally{$('file').value=''}};render();</script><script>if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(console.warn);</script></body></html>
