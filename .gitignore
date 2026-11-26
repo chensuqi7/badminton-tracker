@@ -1,0 +1,8 @@
+.DS_Store
+.env*
+*.zip
+*.csv
+*.json
+!/manifest.json
+*.log
+node_modules/
