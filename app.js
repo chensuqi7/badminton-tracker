@@ -5,7 +5,7 @@ const svgNS='http://www.w3.org/2000/svg';
 const money=cents=>'¥'+(cents/100).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const sum=rows=>rows.reduce((n,r)=>n+r.cents,0);
 const icons={home:'M3 10l9-7 9 7v10h-6v-6H9v6H3z',history:'M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5',expenses:'M3 6h18v13H3z M3 9h18 M15 14h3',stats:'M4 20h16 M7 16v-4 M12 16V5 M17 16V8',settings:'M4 7h16 M4 12h16 M4 17h16 M8 5v4 M16 10v4 M10 15v4'};
-const colors=['#0087B5','#00A779','#3E687C','#57BBD0','#5E9C87','#83B867','#8493A2'];
+const colors=['#0087B5','#00A779','#3E687C','#57BBD0','#5E9C87','#8493A2'];
 let state=L.empty(), stored=null, readable=true, previousBalance, lastQuick=null, dayAtRender='';
 function node(tag,text,cls){
   const n=document.createElement(tag);
@@ -79,7 +79,7 @@ $('period').onchange=()=>{
   field.value=L.today().slice(0,year?4:7);
   $('period-label').textContent=year?'年份':'月份';render();
 };
-for(const id of ['from','to','kind-filter','category-filter','calendar-month','period-value','stats-year'])$(id).onchange=render;
+for(const id of ['from','to','kind-filter','category-filter','calendar-month','period-value','stats-year','include-purchases'])$(id).onchange=render;
 
 function metric(container,values){
   $(container).replaceChildren(...values.map(([name,value])=>{const n=node('div',name);n.append(node('b',value));return n}));
@@ -107,7 +107,7 @@ function list(id,rows,emptyText,getInfo,action){
 }
 const sorted=rows=>[...rows].sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt));
 const recordInfo=r=>[L.kinds[r.kind],r.date+(r.note?' · '+r.note:''), (L.delta(r)>0?'+':'')+L.delta(r)/100+' 节'];
-const expenseInfo=r=>[r.item,r.date+' · '+r.category+(r.source==='purchase'?' · 关联购课':'')+(r.note?' · '+r.note:''),money(r.cents)];
+const expenseInfo=r=>[r.item,r.date+' · '+r.category+(L.isPurchaseExpense(r)?' · 培训购课':r.source==='historical-training'?' · 历史培训':'')+(r.note?' · '+r.note:''),money(r.cents)];
 const categoryTotals=rows=>L.categories.map(category=>sum(rows.filter(r=>r.category===category)));
 function chart(id,kind,values){
   const ring=kind==='ring', svg=svgNode('svg',{viewBox:ring?'0 0 120 120':'0 0 360 132',role:'img','aria-label':ring?'支出分类占比':'月度开销趋势'});
@@ -166,18 +166,16 @@ function render(){
   const yearMode=$('period').value==='year';
   const picked=$('period-value').value;
   const period=(yearMode?/^\d{4}$/:/^\d{4}-(0[1-9]|1[0-2])$/).test(picked)?picked:date.slice(0,yearMode?4:7);
-  const periodRows=expenses.filter(r=>r.date.startsWith(period)), total=sum(periodRows), amounts=categoryTotals(periodRows);
+  const periodRows=L.filterExpenses(expenses.filter(r=>r.date.startsWith(period)),$('include-purchases').checked), total=sum(periodRows), amounts=categoryTotals(periodRows);
   $('spend').textContent=money(total);$('expense-count').textContent=periodRows.length+' 笔';
   $('budget-status').textContent=!yearMode&&state.settings.budget!==null?'月预算 '+money(state.settings.budget)+(total>state.settings.budget?' · 已超出 '+money(total-state.settings.budget):' · 剩余 '+money(state.settings.budget-total)):'';
   chart('expense-chart','ring',amounts);
   const breakdown=$('expense-breakdown');breakdown.replaceChildren();
   amounts.forEach((amount,i)=>{
-    if(!amount)return;
     const row=node('div',undefined,'row'), label=node('div',L.categories[i]), dot=node('span',undefined,'legend-dot');
-    dot.style.backgroundColor=colors[i];label.prepend(dot);row.append(label,node('small',money(amount)+' · '+(amount*100/total).toFixed(1)+'%'));breakdown.append(row);
+    dot.style.backgroundColor=colors[i];label.prepend(dot);row.append(label,node('small',money(amount)+' · '+(total?amount*100/total:0).toFixed(1)+'%'));breakdown.append(row);
   });
-  if(!breakdown.children.length)breakdown.append(node('small','暂无支出占比'));
-  list('expense-list',sorted(periodRows.filter(r=>!$('category-filter').value||r.category===$('category-filter').value)),'暂无匹配支出',expenseInfo,r=>r.source==='purchase'?recordEditor('purchase',state.records.find(x=>x.id===r.businessId)):expenseEditor(r));
+  list('expense-list',sorted(periodRows.filter(r=>!$('category-filter').value||r.category===$('category-filter').value)),'暂无匹配支出',expenseInfo,r=>L.isPurchaseExpense(r)?recordEditor('purchase',state.records.find(x=>x.id===r.businessId)):expenseEditor(r));
   const next=stats.complete?L.shift(stats.last,7):date;
   const forecast=weeks&&weeks<50000?L.shift(next,(weeks-1)*7):'—';
   metric('training-metrics',[['本月训练',stats.month+' 次'],['年度训练',stats.year+' 次'],['连续完成',stats.streak+' 周'],['距上次训练',stats.last?Math.round((Date.parse(date)-Date.parse(stats.last))/86400000)+' 天':'—'],['预计剩余训练',weeks+' 周'],['估算耗尽日期',forecast]]);
@@ -190,8 +188,8 @@ function render(){
   const annual=expenses.filter(r=>r.date.startsWith(year)), annualTotal=sum(annual);
   const monthly=Array.from({length:12},(_,i)=>sum(annual.filter(r=>r.date.startsWith(year+'-'+String(i+1).padStart(2,'0')))));
   const monthCount=year===date.slice(0,4)?Number(month.slice(-2)):12;
-  const tuition=sum(annual.filter(r=>r.category===L.categories[0]));
-  metric('spend-metrics',[['年度累计',money(annualTotal)],['月均消费',money(Math.round(annualTotal/monthCount))],['培训费用占比',annualTotal?(tuition*100/annualTotal).toFixed(1)+'%':'—']]);
+  const tuition=sum(annual.filter(L.isPurchaseExpense));
+  metric('spend-metrics',[['年度累计',money(annualTotal)],['月均消费',money(Math.round(annualTotal/monthCount))],['培训购课支出占比',annualTotal?(tuition*100/annualTotal).toFixed(1)+'%':'—']]);
   chart('trend','bars',monthly);
   metric('trend-values',monthly.map((value,i)=>[i+1+' 月',money(value)]));
   const cost=L.costs(state);
@@ -254,15 +252,15 @@ function recordEditor(kind,r,onlyOpening=false){
     if(gift)qty.value=0;
     qty.min=['opening','adjust'].includes(type.value)?'-1000000':['credit','purchase','refund'].includes(type.value)?'1':'0';
     if(r&&r.qty>0&&r.qty<1&&type.value===r.kind)qty.min='.01';
-    hint.textContent=purchase?'确认后同步生成培训费用。仅填写本次实际抵扣的欠课。':type.value==='opening'?'填写校准后的期初余额，原有流水继续参与计算。':type.value==='adjust'?'填写正数增加课时，负数扣减课时。':type.value==='credit'?'增加赠送课时。':type.value==='gift'?'登记赠送训练，扣课为 0。':'';
+    hint.textContent=purchase?'确认后同步生成打球费用并标记培训购课。仅填写本次实际抵扣的欠课。':type.value==='opening'?'填写校准后的期初余额，原有流水继续参与计算。':type.value==='adjust'?'填写正数增加课时，负数扣减课时。':type.value==='credit'?'增加赠送课时。':type.value==='gift'?'登记赠送训练，扣课为 0。':'';
   };
   type.onchange=configure;configure();
-  if(r)remove(target,'records',r,r.kind==='purchase'?'删除购课会重算余额，并同时移除关联培训费用。确认删除？':'确认删除这条流水并重新计算余额？');
+  if(r)remove(target,'records',r,r.kind==='purchase'?'删除购课会重算余额，并同时移除关联打球费用。确认删除？':'确认删除这条流水并重新计算余额？');
   submit(form=>{
     const purchase=form.kind==='purchase';
     const draft={date:form.date,kind:form.kind,qty:Number(form.qty),bonus:purchase?Number(form.bonus):0,offset:purchase?Number(form.offset):0,cents:purchase?cents(form.amount):null,note:form.note.trim()};
     if((!r||r.qty!==draft.qty)&&!Number.isInteger(draft.qty))throw Error('新增或修改课时数量时请输入整数。');
-    if(r?.kind==='purchase'&&!purchase&&!confirm('变更类型后会移除关联培训费用，确认继续？'))throw Error('已取消变更。');
+    if(r?.kind==='purchase'&&!purchase&&!confirm('变更类型后会移除关联打球费用，确认继续？'))throw Error('已取消变更。');
     if(L.training(draft)&&state.records.some(x=>x.id!==r?.id&&L.training(x)&&x.date===draft.date)&&!confirm('当天已有训练流水，确认继续登记？'))throw Error('已取消登记。');
     persist(L.change(state,'records',r?.id,draft),'课时流水已保存');
   });
@@ -274,9 +272,10 @@ function expenseEditor(r){
   field('消费项目','item',r?.item,{required:'',maxlength:'100'});
   field('实付金额（元）','amount',r?r.cents/100:'',{...yuan,required:''});
   field('备注','note',r?.note,{maxlength:'300'});
-  target.append(node('p','可补录历史培训费用，课时余额保持原样。','hint'));
+  field('来源','source',r?.source??'manual',{options:[['manual','普通支出'],['historical-training','历史培训补录']]});
+  target.append(node('p','历史培训补录归入打球费用，课时余额保持原样。','hint'));
   if(r)remove(target,'expenses',r,'确认删除这笔消费？');
-  submit(form=>persist(L.change(state,'expenses',r?.id,{date:form.date,category:form.category,item:form.item.trim(),cents:cents(form.amount),note:form.note.trim(),source:'manual',businessId:null}),'消费已保存'));
+  submit(form=>persist(L.change(state,'expenses',r?.id,{date:form.date,category:form.source==='historical-training'?L.categories[0]:form.category,item:form.item.trim(),cents:cents(form.amount),note:form.note.trim(),source:form.source,businessId:null}),'消费已保存'));
 }
 function download(name,body,type){
   const url=URL.createObjectURL(new Blob([body],{type})), link=node('a');
@@ -308,8 +307,8 @@ function settings(){
       if(!state.audit.length)area.append(node('p','暂无修改历史','hint'));
     })
   );
-  if(!readable)actions.append(button('导出原始数据',()=>safe(()=>download('羽球日记-原始账本.json',JSON.stringify({v3:localStorage.getItem(L.key),legacy:localStorage.getItem(L.legacyKey),migrationBackup:localStorage.getItem(L.backupKey)}),'application/json'))));
-  target.append(actions,node('p','羽球日记 3.0.0 · 数据仅保存在当前设备。','hint'));
+  if(!readable)actions.append(button('导出原始数据',()=>safe(()=>download('羽球日记-原始账本.json',JSON.stringify({v3:localStorage.getItem(L.key),legacy:localStorage.getItem(L.legacyKey),migrationBackup:localStorage.getItem(L.backupKey),categoryBackup:localStorage.getItem(L.categoryBackupKey)}),'application/json'))));
+  target.append(actions,node('p','羽球日记 3.0.1 · 数据仅保存在当前设备。','hint'));
 }
 $('import-file').onchange=async event=>{
   const file=event.target.files[0];

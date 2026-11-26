@@ -35,6 +35,7 @@
 <section id="expenses-page" hidden>
   <article class="card"><div class="heading"><h2>运动开销</h2><button id="new-expense">新增支出</button></div>
   <div class="fields"><label>统计范围<select id="period"><option value="month">按月</option><option value="year">按年</option></select></label><label><span id="period-label">月份</span><input id="period-value" type="month"></label></div>
+  <label class="toggle"><input id="include-purchases" type="checkbox" checked>包含一次性培训购课支出</label>
   <div class="metrics"><div>累计支出<b id="spend"></b></div><div>支出笔数<b id="expense-count"></b></div></div>
   <div id="budget-status"></div><div id="expense-chart" class="chart"></div><div id="expense-breakdown"></div></article>
   <article class="card"><h2>支出明细</h2><label>分类筛选<select id="category-filter"></select></label><div id="expense-list"></div></article>

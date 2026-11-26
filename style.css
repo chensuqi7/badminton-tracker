@@ -36,3 +36,6 @@ dialog{width:min(calc(100% - 24px),460px);max-width:100%;max-height:calc(100% - 
 dialog::backdrop{background:#182b3960}.error,.notice{color:#922d18}.notice{background:#fff2e5;padding:10px;border-radius:10px;margin-bottom:10px}.status{font-size:14px;color:#006b53}
 .chart svg{display:block;width:100%;height:auto;max-height:170px;margin:10px auto}.legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}.hint{margin-top:8px;color:var(--secondary);font-size:13px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+.toggle{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;cursor:pointer}
+.toggle input{appearance:auto;flex:none;width:20px;min-height:20px;margin:0;accent-color:var(--green)}

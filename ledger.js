@@ -4,7 +4,9 @@ const Ledger = (() => {
   const key = 'badminton-diary-v3';
   const legacyKey = 'zy-personal-lessons-v1';
   const backupKey = 'badminton-diary-v2-migration-backup';
-  const categories = ['培训费用','场地费用','羽球耗材','球拍装备','穿线维护','球鞋服饰','其他费用'];
+  const categories = ['打球费用','球鞋服饰','球拍装备','羽球耗材','穿线维护','其他'];
+  const categoryAliases = new Map([['培训费用','打球费用'],['场地费用','打球费用'],['其他费用','其他']]);
+  const categoryBackupKey = 'badminton-diary-v3-category-backup';
   const kinds = {lesson:'正常上课',makeup:'补课',gift:'赠送训练',credit:'赠送课时',purchase:'购课',refund:'退款退课',adjust:'余额调整',opening:'期初余额校准'};
   const base = 2200;
   const units = n => Math.round(n * 100);
@@ -28,7 +30,7 @@ const Ledger = (() => {
     && quantityOK(r.bonus)&&r.bonus>=0&&quantityOK(r.offset)&&r.offset>=0
     && (r.kind==='purchase'||(r.bonus===0&&r.offset===0&&r.cents===null))
     && (r.cents===null||centsOK(r.cents));
-  const expenseOK = r => meta(r)&&categories.includes(r.category)&&typeof r.item==='string'&&r.item.trim().length>0&&centsOK(r.cents)&&r.source==='manual'&&r.businessId===null;
+  const expenseOK = r => meta(r)&&categories.includes(r.category)&&typeof r.item==='string'&&r.item.trim().length>0&&centsOK(r.cents)&&['manual','historical-training'].includes(r.source)&&r.businessId===null;
   const auditOK = a => a && typeof a.at==='string' && ['create','update','delete'].includes(a.action)
     && ['records','expenses'].includes(a.collection)
     && (a.before===null||(a.collection==='records'?recordOK(a.before):expenseOK(a.before)))
@@ -50,12 +52,33 @@ const Ledger = (() => {
     if(!valid(state))throw Error('旧课时流水校验失败');
     return state;
   }
+  function normalizeCategories(state){
+    const remap = row => {
+      const category=categoryAliases.get(row?.category);
+      return category ? {...row,category} : row;
+    };
+    if(state?.version!==3||!Array.isArray(state.expenses)||!Array.isArray(state.audit))return state;
+    const expenses=state.expenses.map(remap);
+    const audit=state.audit.map(entry=>{
+      if(entry?.collection!=='expenses')return entry;
+      const before=remap(entry.before), after=remap(entry.after);
+      return before===entry.before&&after===entry.after ? entry : {...entry,before,after};
+    });
+    return expenses.some((row,i)=>row!==state.expenses[i])||audit.some((row,i)=>row!==state.audit[i])
+      ? {...state,expenses,audit} : state;
+  }
+  const isPurchaseExpense = expense => expense.source==='purchase';
+  const filterExpenses = (rows,includePurchases) => includePurchases ? rows : rows.filter(r=>!isPurchaseExpense(r));
   function load(storage){
     const raw=storage.getItem(key);
     if(raw!==null){
-      const state=JSON.parse(raw);
+      const original=JSON.parse(raw), state=normalizeCategories(original);
       if(!valid(state))throw Error('V3 账本校验失败');
-      return {state,raw};
+      if(state===original)return {state,raw};
+      if(storage.getItem(categoryBackupKey)===null)storage.setItem(categoryBackupKey,raw);
+      const saved=JSON.stringify(state);
+      storage.setItem(key,saved);
+      return {state,raw:saved};
     }
     const old=storage.getItem(legacyKey);
     if(old===null)return {state:empty(),raw:null};
@@ -66,6 +89,7 @@ const Ledger = (() => {
   }
   function restore(data){
     if(data?.version===1&&data.initial===22)return migrate(data.records);
+    data=normalizeCategories(data);
     if(!valid(data))throw Error('备份格式无效');
     return data;
   }
@@ -139,6 +163,6 @@ const Ledger = (() => {
     }
     return {known,unknown};
   }
-  return {key,legacyKey,backupKey,categories,kinds,base,units,today,day,shift,week,weekday,training,valid,empty,load,restore,delta,balance,expenses,change,trainingStats,costs};
+  return {key,legacyKey,backupKey,categoryBackupKey,isPurchaseExpense,filterExpenses,categories,kinds,base,units,today,day,shift,week,weekday,training,valid,empty,load,restore,delta,balance,expenses,change,trainingStats,costs};
 })();
 if(typeof module!=='undefined')module.exports=Ledger;
