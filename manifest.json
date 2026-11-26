@@ -1,1 +1,14 @@
-{"name": "羽球课时账本", "short_name": "羽球记课", "start_url": "./", "scope": "./", "display": "standalone", "background_color": "#f4f3f8", "theme_color": "#59478f", "icons": [{"src": "icon-192.png", "sizes": "192x192", "type": "image/png"}, {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"}]}
+{
+  "id": "./",
+  "name": "羽球日记 · MY BADMINTON",
+  "short_name": "羽球日记",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F4F7FA",
+  "theme_color": "#F4F7FA",
+  "icons": [
+    {"src":"./icon-192.png","sizes":"192x192","type":"image/png"},
+    {"src":"./icon-512.png","sizes":"512x512","type":"image/png"}
+  ]
+}
