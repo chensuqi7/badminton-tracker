@@ -6,3 +6,6 @@
 !/manifest.json
 *.log
 node_modules/
+
+/supabase/.temp/
+/supabase/.branches/

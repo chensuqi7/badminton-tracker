@@ -26,7 +26,10 @@ function svgIcon(name){
 function button(label,action){
   const b=node('button',label);b.type='button';b.onclick=action;return b;
 }
+const cloud=window.DiaryCloud;
 function read(){
+  const remote=cloud?.status();
+  if(remote?.account){readable=Boolean(remote.state);if(remote.state)state=remote.state;return}
   try{
     const loaded=L.load(localStorage);
     state=loaded.state;stored=loaded.raw;readable=true;
@@ -36,7 +39,8 @@ function read(){
     $('warning').textContent='账本读取或迁移失败，原始数据已保留。请检查存储空间，或在设置中恢复备份。'+error.message;
   }
 }
-function persist(next,message,recover=false){
+async function persist(next,message,recover=false){
+  if(cloud?.status().account){await cloud.save(next,state);$('status').textContent=message;return}
   if(!readable&&!recover)throw Error('账本暂不可写，请先恢复备份。');
   const current=localStorage.getItem(L.key);
   if(!recover&&current!==stored){read();render();throw Error('另一个页面已更新账本，请关闭表单后重试。')}
@@ -46,8 +50,8 @@ function persist(next,message,recover=false){
   state=next;stored=data;readable=true;render();
   $('status').textContent=message;
 }
-function safe(action){
-  try{action()}catch(error){$('status').textContent=error.message;alert(error.message)}
+async function safe(action){
+  try{await action()}catch(error){$('status').textContent=error.message;alert(error.message)}
 }
 function options(select,entries,value){
   for(const [key,label] of entries){const option=node('option',label);option.value=key;select.append(option)}
@@ -211,10 +215,10 @@ function field(label,name,value,attrs={}){
   wrapper.append(control);$('editor-fields').append(wrapper);return control;
 }
 function submit(action){
-  $('editor-form').onsubmit=event=>{
+  $('editor-form').onsubmit=async event=>{
     event.preventDefault();
     try{
-      action(Object.fromEntries(new FormData(event.currentTarget)));
+      await action(Object.fromEntries(new FormData(event.currentTarget)));
       $('editor').close();
     }catch(error){$('editor-error').textContent=error.message}
   };
@@ -228,9 +232,9 @@ function cents(value){
 const numeric={type:'number',step:'1',required:''};
 const yuan={type:'number',min:'0',step:'.01',inputmode:'decimal',max:'1000000000'};
 function remove(control,collection,r,question){
-  control.append(button('删除记录',()=>{
+  control.append(button('删除记录',async ()=>{
     if(!confirm(question))return;
-    try{persist(L.change(state,collection,r.id,null),'已删除记录');$('editor').close()}
+    try{await persist(L.change(state,collection,r.id,null),'已删除记录');$('editor').close()}
     catch(error){$('editor-error').textContent=error.message}
   }));
 }
@@ -256,13 +260,13 @@ function recordEditor(kind,r,onlyOpening=false){
   };
   type.onchange=configure;configure();
   if(r)remove(target,'records',r,r.kind==='purchase'?'删除购课会重算余额，并同时移除关联打球费用。确认删除？':'确认删除这条流水并重新计算余额？');
-  submit(form=>{
+  submit(async form=>{
     const purchase=form.kind==='purchase';
     const draft={date:form.date,kind:form.kind,qty:Number(form.qty),bonus:purchase?Number(form.bonus):0,offset:purchase?Number(form.offset):0,cents:purchase?cents(form.amount):null,note:form.note.trim()};
     if((!r||r.qty!==draft.qty)&&!Number.isInteger(draft.qty))throw Error('新增或修改课时数量时请输入整数。');
     if(r?.kind==='purchase'&&!purchase&&!confirm('变更类型后会移除关联打球费用，确认继续？'))throw Error('已取消变更。');
     if(L.training(draft)&&state.records.some(x=>x.id!==r?.id&&L.training(x)&&x.date===draft.date)&&!confirm('当天已有训练流水，确认继续登记？'))throw Error('已取消登记。');
-    persist(L.change(state,'records',r?.id,draft),'课时流水已保存');
+    await persist(L.change(state,'records',r?.id,draft),'课时流水已保存');
   });
 }
 function expenseEditor(r){
@@ -286,6 +290,44 @@ function csv(rows){
   const escape=value=>'"'+(typeof value==='number'?String(value):String(value??'').replace(/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/,"'$&")).replace(/"/g,'""')+'"';
   return '\ufeff'+rows.map(r=>r.map(escape).join(',')).join('\r\n');
 }
+async function importHistory(local){
+  if(!cloud.status().state)throw Error('请先同步并打开云端账本。');
+  const next=cloud.historical(local,state);
+  const summary='合并后共有 '+next.records.length+' 条课时、'+next.expenses.length+' 条独立支出，余额 '+L.balance(next)+' 节。当前余额 '+L.balance(state)+' 节。';
+  if(!confirm(summary+' 确认上传到个人账本？'))return;
+  await persist(next,'历史数据已加入待同步队列');$('editor').close();
+}
+function cloudSettings(target){
+  if(!cloud?.enabled)return;
+  const info=cloud.status(), tools=node('div',undefined,'actions');
+  target.append(node('p',info.account?.email||'尚未登录','hint'));
+  target.append(node('p','最后同步 '+(info.last?new Date(info.last).toLocaleString():'—')+' · 待同步记录 '+info.pending,'hint'));
+  if(info.error)target.append(node('p',info.error+'。可检查 Supabase 项目是否运行后重试。','error'));
+  if(info.account)tools.append(
+    button('立即同步',()=>safe(async()=>{await cloud.sync();settings()})),
+    button('导入本机历史账本',()=>safe(()=>importHistory(L.load(localStorage).state))),
+    button('退出登录',()=>safe(async()=>{await cloud.logout();settings()}))
+  );
+  else tools.append(button('个人账号登录',()=>{
+    promptEditor('登录羽球日记');
+    field('邮箱','email','',{type:'email',required:'',autocomplete:'username'});
+    field('密码','password','',{type:'password',required:'',autocomplete:'current-password'});
+    submit(form=>cloud.login(form.email,form.password));
+  }));
+  if(info.error.startsWith('同步冲突'))tools.append(button('保留云端版本',()=>safe(async()=>{
+    if(!confirm('请先导出本机 JSON。确认放弃本机尚未同步的修改？'))return;
+    await cloud.discard();settings();
+  })));
+  target.append(tools);
+}
+function refreshCloudStatus(){
+  const info=cloud.status(), badge=$('sync-status');
+  badge.hidden=false;
+  badge.textContent=info.account?(info.error?'同步异常':info.inFlight?'同步中':info.pending?'待同步':navigator.onLine?'已连接':'离线'):'本地';
+  read();render();
+}
+window.addEventListener('diary-cloud',refreshCloudStatus);
+window.addEventListener('offline',()=>{if(cloud?.enabled)refreshCloudStatus()});
 function settings(){
   const target=promptEditor('设置与数据管理');
   $('save-editor').hidden=true;
@@ -294,7 +336,7 @@ function settings(){
   actions.append(
     button('期初余额校准',()=>recordEditor('opening',state.records.find(r=>r.kind==='opening'),true)),
     button('月度预算',()=>{promptEditor('月度预算');field('预算（元，留空停用）','amount',state.settings.budget===null?'':state.settings.budget/100,yuan);
-      submit(form=>{const next={...state,settings:{budget:cents(form.amount)}};if(!L.valid(next))throw Error('预算无效。');persist(next,'预算已保存')})}),
+      submit(async form=>{const next={...state,settings:{budget:cents(form.amount)}};if(!L.valid(next))throw Error('预算无效。');await persist(next,'预算已保存')})}),
     button('导出 JSON',()=>safe(()=>{if(!readable)throw Error('无法读取当前账本，请导出原始数据。');download('羽球日记-'+L.today()+'.json',JSON.stringify(state,null,2),'application/json')})),
     button('恢复 JSON',()=>$('import-file').click()),
     button('导出课时 CSV',()=>download('课时流水-'+L.today()+'.csv',csv([['日期','类型','课时','赠送','欠课抵扣','实付（元）','净课时','备注'],['','默认期初余额',22,0,0,null,22,''],...sorted(state.records).map(r=>[r.date,L.kinds[r.kind],r.qty,r.bonus,r.offset,r.cents===null?null:r.cents/100,L.delta(r)/100,r.note])]),'text/csv;charset=utf-8')),
@@ -308,14 +350,16 @@ function settings(){
     })
   );
   if(!readable)actions.append(button('导出原始数据',()=>safe(()=>download('羽球日记-原始账本.json',JSON.stringify({v3:localStorage.getItem(L.key),legacy:localStorage.getItem(L.legacyKey),migrationBackup:localStorage.getItem(L.backupKey),categoryBackup:localStorage.getItem(L.categoryBackupKey)}),'application/json'))));
-  target.append(actions,node('p','羽球日记 3.0.1 · 数据仅保存在当前设备。','hint'));
+  cloudSettings(target);
+  target.append(actions,node('p','羽球日记 3.1.1','hint'));
 }
 $('import-file').onchange=async event=>{
   const file=event.target.files[0];
   if(!file)return;
   try{
     const next=L.restore(JSON.parse(await file.text()));
-    if(confirm('恢复会替换当前账本。确认继续？')){persist(next,'账本已恢复',true);$('editor').close()}
+    if(cloud?.status().account){await importHistory(next);return}
+    if(confirm('恢复会替换当前账本。确认继续？')){await persist(next,'账本已恢复',true);$('editor').close()}
   }catch(error){alert('无法恢复：'+error.message)}
   finally{event.target.value=''}
 };
@@ -324,18 +368,19 @@ $('settings').onclick=settings;
 $('buy').onclick=()=>recordEditor('purchase');
 $('backfill').onclick=$('new-record').onclick=()=>recordEditor('lesson');
 $('quick-expense').onclick=$('new-expense').onclick=()=>expenseEditor();
-$('quick').onclick=()=>safe(()=>{
+$('quick').onclick=()=>safe(async ()=>{
   const date=L.today(), stats=L.trainingStats(state,date), repeated=stats.days.has(date), low=L.balance(state)<1;
   if((repeated||low)&&!confirm((repeated?'今天已记课，确认再登记一节？':'本次登记将产生超课，确认继续？')+(repeated&&low?' 本次登记将产生超课。':'')))return;
   const next=L.change(state,'records',null,{date,kind:'lesson',qty:1,bonus:0,offset:0,cents:null,note:''});
   lastQuick=next.records[next.records.length-1].id;
-  persist(next,'今日训练已保存');
+  await persist(next,'今日训练已保存');
 });
-$('undo').onclick=()=>safe(()=>{
-  if(lastQuick&&confirm('撤销最近一笔快捷记课？'))persist(L.change(state,'records',lastQuick,null),'已撤销记课');
+$('undo').onclick=()=>safe(async ()=>{
+  if(lastQuick&&confirm('撤销最近一笔快捷记课？'))await persist(L.change(state,'records',lastQuick,null),'已撤销记课');
 });
 window.addEventListener('storage',event=>{if(event.key===L.key){read();render()}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){read();render()}});
 setInterval(()=>{if(dayAtRender!==L.today())render()},30000);
 read();render();
+cloud?.init();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn);

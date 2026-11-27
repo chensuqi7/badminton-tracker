@@ -10,10 +10,12 @@
 <link rel="apple-touch-icon" href="./icon-192.png">
 <link rel="stylesheet" href="./style.css">
 <script defer src="./ledger.js"></script>
+<script defer src="./cloud-config.js"></script>
+<script defer src="./cloud.js"></script>
 <script defer src="./app.js"></script>
 </head>
 <body><main>
-<header><div><small class="wordmark">MY BADMINTON</small><h1>羽球日记</h1><small id="today"></small></div><button id="settings" class="icon-button" aria-label="设置"></button></header>
+<header><div><small class="wordmark">MY BADMINTON</small><h1>羽球日记</h1><small id="today"></small></div><span id="sync-status" role="status" hidden></span><button id="settings" class="icon-button" aria-label="设置"></button></header>
 <p id="warning" class="notice" role="alert" hidden></p>
 <section id="home-page">
   <article class="card balance"><p>剩余课时</p><div><strong id="remaining" class="big">22</strong> 节</div>
