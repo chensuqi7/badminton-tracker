@@ -26,7 +26,7 @@ end $$;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000101',true);
 do $$
 declare op uuid:=gen_random_uuid();
-payload jsonb:='{"version":3,"records":[{"id":"purchase-test","date":"2026-11-27","kind":"purchase","qty":2,"cents":12345}],"expenses":[],"settings":{"budget":null},"audit":[]}';
+payload jsonb:='{"version":3,"records":[{"id":"purchase-test","date":"2026-11-27","kind":"purchase","qty":2,"bonus":0,"offset":0,"cents":12345,"note":"","createdAt":"2026-11-27T00:00:00Z","updatedAt":"2026-11-27T00:00:00Z"}],"expenses":[],"settings":{"budget":null},"audit":[]}';
 begin
   if public.diary_apply(0,op,payload)<>1 or public.diary_apply(0,op,payload)<>1 then raise exception 'idempotency failed'; end if;
   if (select count(*) from public.diary_spending where cents=12345 and source='purchase')<>1 then raise exception 'purchase projection failed'; end if;

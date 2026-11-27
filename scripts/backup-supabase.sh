@@ -13,6 +13,8 @@ trap 'rm -f "$tmp"' EXIT HUP INT TERM
 "${PG_DUMP_BIN:-pg_dump}" --dbname='service=badminton_diary sslmode=verify-full' \
   --no-owner --no-privileges --data-only --strict-names \
   --table=public.diary_profiles --table=public.diary_settings \
-  --table=public.diary_records --table=public.diary_expenses --table=public.diary_history >"$tmp"
+  --table=public.diary_records --table=public.diary_expenses --table=public.diary_history \
+  --table=public.diary_activities --table=public.diary_equipment \
+  --table=public.diary_stringings --table=public.diary_reconciliations >"$tmp"
 test -s "$tmp"
 mv "$tmp" "$destination/diary-$(date -u +%Y%m%dT%H%M%SZ).sql"

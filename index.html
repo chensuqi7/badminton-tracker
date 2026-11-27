@@ -9,16 +9,18 @@
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <link rel="stylesheet" href="./style.css">
+<script defer src="./life.js"></script>
 <script defer src="./ledger.js"></script>
 <script defer src="./cloud-config.js"></script>
 <script defer src="./cloud.js"></script>
+<script defer src="./life-ui.js"></script>
 <script defer src="./app.js"></script>
 </head>
 <body><main>
 <header><div><small class="wordmark">MY BADMINTON</small><h1>羽球日记</h1><small id="today"></small></div><span id="sync-status" role="status" hidden></span><button id="settings" class="icon-button" aria-label="设置"></button></header>
 <p id="warning" class="notice" role="alert" hidden></p>
 <section id="home-page">
-  <article class="card balance"><p>剩余课时</p><div><strong id="remaining" class="big">22</strong> 节</div>
+  <article class="card balance"><p>剩余课时</p><div><strong id="remaining" class="big">—</strong> 节</div>
     <progress id="progress" max="100" value="100" aria-label="课时剩余比例"></progress>
     <div class="metrics three"><div>累计消课<b id="used"></b></div><div>累计新购<b id="bought"></b></div><div>预计剩余<b id="weeks"></b></div></div>
   </article>
@@ -39,15 +41,15 @@
   <div class="fields"><label>统计范围<select id="period"><option value="month">按月</option><option value="year">按年</option></select></label><label><span id="period-label">月份</span><input id="period-value" type="month"></label></div>
   <label class="toggle"><input id="include-purchases" type="checkbox" checked>包含一次性培训购课支出</label>
   <div class="metrics"><div>累计支出<b id="spend"></b></div><div>支出笔数<b id="expense-count"></b></div></div>
-  <div id="budget-status"></div><div id="expense-chart" class="chart"></div><div id="expense-breakdown"></div></article>
+  <div id="expense-summary" class="metrics"></div><div id="budget-status"></div><div id="expense-chart" class="chart"></div><div id="expense-breakdown"></div></article>
   <article class="card"><h2>支出明细</h2><label>分类筛选<select id="category-filter"></select></label><div id="expense-list"></div></article>
 </section>
 <section id="stats-page" hidden>
   <article class="card"><h2>训练统计</h2><div id="training-metrics" class="metrics"></div>
-    <p class="hint">耗尽日期按每周训练 1 节估算。实际训练安排可能改变此日期。</p><label>训练日历月份<input id="calendar-month" type="month"></label><div id="month-calendar" class="calendar"></div><small>蓝绿色标记表示当天有训练记录。</small>
+    <p class="hint">耗尽日期按当前每周训练目标估算。实际训练安排可能改变此日期。</p><label>训练日历月份<input id="calendar-month" type="month"></label><div id="month-calendar" class="calendar"></div>
   </article>
   <article class="card"><h2>消费统计</h2><label>年份<input id="stats-year" type="number" min="1900" max="9999" step="1"></label>
-  <div id="spend-metrics" class="metrics"></div><div id="trend" class="chart"></div><div id="trend-values" class="metrics three"></div></article>
+  <div id="spend-metrics" class="metrics"></div><div id="trend" class="chart"></div><div id="trend-values" class="metrics three"></div><div id="annual-categories" class="metrics"></div></article>
   <article class="card"><h2>购课与消耗成本</h2><div id="cost-metrics" class="metrics"></div><small>按日期先购先用。每笔实付平摊到购买及随购赠送课时。退课优先移除最近批次的未用课时。期初、独立赠送和校准增加的课时缺少单价时记为未知。历史欠课抵扣不计为本期训练。</small></article>
 </section>
 <p id="status" class="status" role="status" aria-live="polite"></p>

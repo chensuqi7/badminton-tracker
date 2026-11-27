@@ -1,6 +1,7 @@
 {
   "id": "./",
   "name": "羽球日记 · MY BADMINTON",
+  "description": "羽球生活，记录课时、运动、开销和装备。",
   "short_name": "羽球日记",
   "start_url": "./",
   "scope": "./",

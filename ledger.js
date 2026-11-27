@@ -30,17 +30,20 @@ const Ledger = (() => {
     && quantityOK(r.bonus)&&r.bonus>=0&&quantityOK(r.offset)&&r.offset>=0
     && (r.kind==='purchase'||(r.bonus===0&&r.offset===0&&r.cents===null))
     && (r.cents===null||centsOK(r.cents));
-  const expenseOK = r => meta(r)&&categories.includes(r.category)&&typeof r.item==='string'&&r.item.trim().length>0&&centsOK(r.cents)&&['manual','historical-training'].includes(r.source)&&r.businessId===null;
+  const expenseOK = r => meta(r)&&categories.includes(r.category)&&typeof r.item==='string'&&r.item.trim().length>0&&centsOK(r.cents)&&['manual','historical-training'].includes(r.source)&&r.businessId===null
+    && (r.refundCents===undefined||centsOK(r.refundCents)&&r.refundCents<=r.cents&&dateOK(r.refundDate)&&r.refundDate>=r.date);
   const auditOK = a => a && typeof a.at==='string' && ['create','update','delete'].includes(a.action)
-    && ['records','expenses'].includes(a.collection)
-    && (a.before===null||(a.collection==='records'?recordOK(a.before):expenseOK(a.before)))
-    && (a.after===null||(a.collection==='records'?recordOK(a.after):expenseOK(a.after)));
+    && ['records','expenses',...(typeof Life==='undefined'?[]:Life.collections)].includes(a.collection)
+    && (a.before===null||(a.collection==='records'?recordOK(a.before):a.collection==='expenses'?expenseOK(a.before):meta(a.before)))
+    && (a.after===null||(a.collection==='records'?recordOK(a.after):a.collection==='expenses'?expenseOK(a.after):meta(a.after)));
+  const opening = s => s.openingHundredths ?? base;
   const empty = () => ({version:3,records:[],expenses:[],settings:{budget:null},audit:[]});
-  const valid = s => s?.version===3 && Array.isArray(s.records)&&s.records.every(recordOK)&&unique(s.records)
+  const valid = s => s?.version===3 && (s.openingHundredths===undefined || [0,base].includes(s.openingHundredths)) && Array.isArray(s.records)&&s.records.every(recordOK)&&unique(s.records)
     && s.records.filter(r=>r.kind==='opening').length<=1
     && Array.isArray(s.expenses)&&s.expenses.every(expenseOK)&&unique(s.expenses)
     && s.settings && (s.settings.budget===null||centsOK(s.settings.budget))
-    && Array.isArray(s.audit)&&s.audit.every(auditOK);
+    && Array.isArray(s.audit)&&s.audit.every(auditOK)
+    && (typeof Life==='undefined'||Life.valid(s));
   function migrate(records){
     if(!Array.isArray(records))throw Error('旧课时流水格式无效');
     const state=empty(), at=stamp();
@@ -81,7 +84,7 @@ const Ledger = (() => {
       return {state,raw:saved};
     }
     const old=storage.getItem(legacyKey);
-    if(old===null)return {state:empty(),raw:null};
+    if(old===null)return {state:{...empty(),openingHundredths:0},raw:null};
     if(storage.getItem(backupKey)===null)storage.setItem(backupKey,old);
     const state=migrate(JSON.parse(old)), saved=JSON.stringify(state);
     storage.setItem(key,saved);
@@ -93,24 +96,24 @@ const Ledger = (() => {
     if(!valid(data))throw Error('备份格式无效');
     return data;
   }
-  function delta(r){
+  function delta(r,initial=base){
     const qty=units(r.qty);
     if(r.kind==='purchase')return qty+units(r.bonus)-units(r.offset);
     if(r.kind==='credit'||r.kind==='adjust')return qty;
-    if(r.kind==='opening')return qty-base;
+    if(r.kind==='opening')return qty-initial;
     return -qty;
   }
-  const balance = s => (base+s.records.reduce((n,r)=>n+delta(r),0))/100;
+  const balance = s => (opening(s)+s.records.reduce((n,r)=>n+delta(r,opening(s)),0))/100;
   const expenses = s => [...s.expenses,...s.records.filter(r=>r.kind==='purchase'&&r.cents!==null).map(r=>({
     id:'purchase:'+r.id,date:r.date,category:categories[0],item:'购课',cents:r.cents,note:r.note,source:'purchase',businessId:r.id,createdAt:r.createdAt,updatedAt:r.updatedAt
   }))];
-  function change(state,collection,id,draft){
+  function change(state,collection,id,draft,{deferValidation=false}={}){
     const list=state[collection], before=list.find(r=>r.id===id)||null, at=stamp();
     const after=draft?{...draft,id:before?.id||uid(),createdAt:before?.createdAt||at,updatedAt:at}:null;
     if(!before&&!after)return state;
     const next={...state,[collection]:before?(after?list.map(r=>r.id===id?after:r):list.filter(r=>r.id!==id)):[...list,after],
       audit:[...state.audit,{at,collection,action:after?(before?'update':'create'):'delete',before,after}]};
-    if(!valid(next))throw Error('请核对日期、课时和金额。期初校准仅保留一条。');
+    if(!deferValidation&&!valid(next))throw Error('请核对日期、课时和金额。期初校准仅保留一条。');
     return next;
   }
   function trainingStats(s,date){
@@ -150,8 +153,8 @@ const Ledger = (() => {
       }
       if(q>0){debt+=q;if(track)unknown=true}
     }
-    const opening=initial?units(initial.qty):base;
-    if(opening>=0)supply(opening);else debt=-opening;
+    const initialUnits=initial?units(initial.qty):opening(s);
+    if(initialUnits>=0)supply(initialUnits);else debt=-initialUnits;
     for(const r of [...s.records].sort((a,b)=>a.date.localeCompare(b.date)||a.createdAt.localeCompare(b.createdAt))){
       if(r.kind==='opening')continue;
       if(r.kind==='purchase'){
@@ -163,6 +166,6 @@ const Ledger = (() => {
     }
     return {known,unknown};
   }
-  return {key,legacyKey,backupKey,categoryBackupKey,isPurchaseExpense,filterExpenses,categories,kinds,base,units,today,day,shift,week,weekday,training,valid,empty,load,restore,delta,balance,expenses,change,trainingStats,costs};
+  return {key,legacyKey,backupKey,categoryBackupKey,isPurchaseExpense,filterExpenses,categories,kinds,base,opening,units,today,day,shift,week,weekday,training,valid,empty,load,restore,delta,balance,expenses,change,trainingStats,costs};
 })();
 if(typeof module!=='undefined')module.exports=Ledger;
