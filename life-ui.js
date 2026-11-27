@@ -3,7 +3,6 @@
 const LifeUI = (() => {
   const categories=()=>L.categories.map(c=>[c,c]);
   const choice=items=>Object.entries(items);
-  const dayLabel=['无运动','培训','日常打球','培训与日常打球'];
   const dateField=(value)=>field('日期','date',value,{type:'date',required:''});
   const noteField=value=>field('备注','note',value,{maxlength:'300'});
   const save=(next,message)=>{
@@ -11,13 +10,6 @@ const LifeUI = (() => {
     return persist(next,message);
   };
   const byDate=rows=>[...rows].sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt));
-  const putCard=(parent,title,id)=>{
-    const card=node('article',undefined,'card');
-    card.append(node('h2',title));
-    if(id)card.id=id;
-    $(parent).append(card);
-    return card;
-  };
   function expenseFields(row,category){
     const used=new Set(Life.collections.flatMap(name=>Life.all(state,name).filter(x=>x.id!==row?.id).map(x=>x.expenseId)));
     const choices=state.expenses.filter(x=>!used.has(x.id)&&(!category||x.category===category));
@@ -113,28 +105,6 @@ const LifeUI = (() => {
         broken:form.broken||null,note:form.note,cents:amount,expenseId:id}),'穿线记录已保存');
     });
   }
-  const paid=row=>state.expenses.find(x=>x.id===row.expenseId);
-  const net=row=>row.cents-(row.refundCents??0);
-  const actual=row=>paid(row)?net(paid(row)):0;
-  const tension=r=>[r.main,r.cross].filter(x=>x!==null).join('/')||'—';
-  function gearDetails(gear){
-    const target=promptEditor(gear.name);$('save-editor').hidden=true;
-    const history=byDate(Life.all(state,'stringings').filter(row=>row.equipmentId===gear.id));
-    const current=history[0], maintenance=history.reduce((n,r)=>n+actual(r),0);
-    target.append(node('p',[gear.brand,gear.model,gear.spec,Life.statuses[gear.status]].filter(Boolean).join(' · ')),
-      node('p','购买于 '+gear.date+' · '+(gear.cents===null?'价格未填写':money(gear.cents))),
-      node('p','累计实际支出 '+money(actual(gear)+maintenance)+' · 穿线 '+history.length+' 次 · 维护 '+money(maintenance)));
-    if(current)target.append(node('p','最近穿线 '+current.date+' · '+current.brand+' '+current.model+' · '+tension(current)+' 磅'));
-    const actions=node('div',undefined,'actions');
-    actions.append(button('编辑装备',()=>equipmentEditor(gear)));
-    if(gear.type==='racket')actions.append(button('登记穿线',()=>stringEditor(gear)));
-    target.append(actions);
-    for(const row of history){
-      const newer=history[history.indexOf(row)-1];
-      const end=row.broken||newer?.date||L.today(), days=Math.max(0,(Date.parse(end)-Date.parse(row.date))/86400000);
-      target.append(button(row.date+' · '+row.model+' · '+tension(row)+' 磅 · '+days+' 天',()=>stringEditor(gear,row)));
-    }
-  }
   function reconcile(){
     const target=promptEditor('课时对账'), balance=L.balance(state);
     const last=byDate(Life.all(state,'reconciliations'))[0];
@@ -151,7 +121,7 @@ const LifeUI = (() => {
     const difference=node('p','差异 0 节','hint');target.append(difference);
     confirmed.oninput=()=>{difference.textContent='差异 '+(Math.round((Number(confirmed.value)-balance)*100)/100)+' 节'};
     field('差异原因','reason','',{maxlength:300});noteField('');
-    target.append(button('查看课时流水',()=>{$('editor').close();navigate('history');$('history').scrollIntoView()}));
+    target.append(button('查看课时流水',()=>{$('editor').close();window.PrototypeUI.goLedger()}));
     submit(async form=>{
       const status=cloud.status();
       if(status.account){
@@ -183,104 +153,17 @@ const LifeUI = (() => {
     actions.append(button('补记培训',()=>recordEditor('lesson',null,false,date)),button('补记日常打球',()=>activityEditor(null,date)));
     target.append(actions);
   }
-  function activityCell(date,flags,rows,heat){
-    const cell=button(heat?'':String(Number(date.slice(-2))),()=>dayDetails(date,rows));
-    cell.className=(heat?'heat-cell':'day')+' activity-'+flags;
-    cell.title=date+' · '+dayLabel[flags];cell.setAttribute('aria-label',cell.title);
-    return cell;
-  }
-  function heatmap(root,start,end,rows){
-    const days=Life.dayTypes(rows);
-    root.replaceChildren();
-    for(let i=0;i<L.weekday(start);i++)root.append(node('span'));
-    for(let date=start;date<=end;date=L.shift(date,1))root.append(activityCell(date,days.get(date)||0,rows,true));
-  }
-  const monthMove=(value,amount)=>{
-    const [y,m]=value.split('-').map(Number);
-    return L.day(new Date(y,m-1+amount,1,12)).slice(0,7);
-  };
-  function setup(){
-    const home=$('week-calendar').parentElement;
-    const quick=node('div',undefined,'actions');
-    quick.append(button('登记今天打球',()=>safe(async()=>{
-      if(!readable)throw Error('请先登录。');
-      await save(Life.change(state,'activities',{date:L.today(),place:'',minutes:null,note:'',expenseId:null}),'日常打球已保存');
-    })),button('补记打球详情',()=>activityEditor()),button('课时对账',reconcile),button('我的球包',()=>{navigate('stats');$('equipment-list').closest('article').scrollIntoView()}));
-    home.append(quick);
-    const balance=$('remaining').closest('article');
-    const last=node('p',undefined,'hint');last.id='last-reconciliation';balance.append(last);
-    const compact=putCard('home-page','最近 12 周运动');
-    const homeHeat=node('div',undefined,'heatmap');homeHeat.id='home-heat';compact.append(homeHeat);
-    const calendarCard=putCard('history-page','运动日历');
-    $('history-page').prepend(calendarCard);
-    const navigation=node('div',undefined,'actions');
-    for(const [label,amount] of [['上个月',-1],['下个月',1],['回到今天',0]])navigation.append(button(label,()=>{
-      $('calendar-month').value=amount?monthMove($('calendar-month').value||L.today().slice(0,7),amount):L.today().slice(0,7);render();
-    }));
-    const oldCalendar=$('calendar-month').closest('label');
-    calendarCard.append(oldCalendar,navigation,$('month-calendar'));
-    $('history-page').append($('training-metrics').closest('article'));
-    const calendarTotals=node('p',undefined,'hint');calendarTotals.id='activity-month-totals';calendarCard.append(calendarTotals);
-    const motion=putCard('history-page','运动记录');
-    const motionList=node('div');motionList.id='activity-list';motion.append(motionList);
-    motion.append(button('补记日常打球',()=>activityEditor()),button('课时对账',reconcile));
-    const annual=putCard('history-page','年度运动热力图');
-    const yearInput=node('input');yearInput.type='number';yearInput.min=1900;yearInput.max=9998;yearInput.value=L.today().slice(0,4);yearInput.id='activity-year';yearInput.onchange=render;
-    const yearLabel=node('label','运动年份');yearLabel.append(yearInput);annual.append(yearLabel);
-    const heat=node('div',undefined,'annual-heat');heat.id='year-heat';annual.append(heat);
-    const totals=node('p',undefined,'hint');totals.id='activity-year-totals';annual.append(totals,node('small','灰色无运动 · 绿色培训 · 蓝色日常打球 · 双色为混合'));
-    const settingsCard=putCard('stats-page','账号和数据');
-    $('stats-page').prepend(settingsCard);
-    const profile=node('p',undefined,'hint');profile.id='profile-info';
-    settingsCard.append(profile,button('设置与数据管理',settings));
-    const gear=putCard('stats-page','我的球包');
-    gear.append(button('新增装备',()=>equipmentEditor()));
-    const items=node('div');items.id='equipment-list';gear.append(items);
-    const records=putCard('stats-page','课时对账记录');
-    const recordList=node('div');recordList.id='reconciliation-list';records.append(button('新建对账',reconcile),recordList);
-    $('expenses-page').append($('spend-metrics').closest('article'));
-    const filter=node('div',undefined,'fields');
-    const search=node('input');search.id='expense-search';search.type='search';search.oninput=render;
-    const label=node('label','搜索项目、备注');label.append(search);
-    const order=node('select');order.id='expense-order';options(order,[['date','最新日期'],['amount','金额从高到低']],'date');order.onchange=render;
-    const sort=node('label','排序');sort.append(order);filter.append(label,sort);$('expense-list').before(filter);
-  }
-  function renderExtras(){
-    const info=cloud.status();
-    $('profile-info').textContent=info.account
-      ?info.account.email+' · '+(info.error?'同步异常':info.pending?'待同步 '+info.pending+' 条':navigator.onLine?'云端账本':'离线缓存')
-      :'尚未登录';
-    const date=L.today(), all=Life.activities(state), selected=$('calendar-month').value;
-    const month=Life.date(selected+'-01')?selected:date.slice(0,7);
-    const rows=all.filter(r=>r.date.startsWith(month)), flags=Life.dayTypes(rows);
-    const first=month+'-01', monthGrid=$('month-calendar');
-    monthGrid.replaceChildren(...weekdays.map(d=>node('small',d)));
-    for(let i=0;i<L.weekday(first);i++)monthGrid.append(node('span'));
-    for(let d=first;d.startsWith(month);d=L.shift(d,1))monthGrid.append(activityCell(d,flags.get(d)||0,all,false));
-    const trainings=rows.filter(r=>r.type==='training').length;
-    $('activity-month-totals').textContent=flags.size+' 个运动日 · 培训 '+trainings+' 次 · 日常打球 '+(rows.length-trainings)+' 次';
-    list('activity-list',byDate(rows),'本月没有运动记录',r=>[r.type==='training'?L.kinds[r.kind]:'日常打球',r.date+' · '+(r.place||r.note||''),r.minutes?r.minutes+' 分钟':''],
-      r=>r.type==='training'?recordEditor(r.kind,state.records.find(x=>x.id===r.ledgerId)):activityEditor(r));
-    const yearInput=$('activity-year').value;
-    const year=/^(19\d{2}|[2-9]\d{3})$/.test(yearInput)&&yearInput!=='9999'?yearInput:date.slice(0,4);
-    const annual=all.filter(r=>r.date.startsWith(year));
-    if(!$('history-page').hidden){
-      const root=$('year-heat');root.replaceChildren();
-      for(const [start,end,label] of [['01-01','03-31','1–3 月'],['04-01','06-30','4–6 月'],['07-01','09-30','7–9 月'],['10-01','12-31','10–12 月']]){
-        const grid=node('div',undefined,'heatmap');
-        root.append(node('small',label),grid);
-        heatmap(grid,year+'-'+start,year+'-'+end,annual);
-      }
+  function segmented(entries,onSelect,initial=0){
+    const group=node('div',undefined,'segmented');
+    group.setAttribute('role','group');
+    const controls=entries.map((label,index)=>button(label,()=>select(index)));
+    function select(index){
+      controls.forEach((control,i)=>control.setAttribute('aria-pressed',String(i===index)));
+      onSelect(index);
     }
-    heatmap($('home-heat'),L.shift(L.week(date),-77),L.shift(L.week(date),6),all);
-    const weeks=Life.weekStats(annual,date,Life.goal(state));
-    const months=Array.from({length:12},(_,i)=>new Set(annual.filter(r=>Number(r.date.slice(5,7))===i+1).map(r=>r.date)).size);
-    const busiest=Math.max(...months);
-    $('activity-year-totals').textContent=Life.dayTypes(annual).size+' 个运动日 · '+annual.length+' 次运动 · 连续运动 '+weeks.active+' 周 · 最长达标训练 '+weeks.longest+' 周 · 最活跃月份 '+(busiest?(months.indexOf(busiest)+1)+' 月':'—');
-    const last=byDate(Life.all(state,'reconciliations'))[0];
-    $('last-reconciliation').textContent='最近对账 '+(last?last.date:'—')+' · 本月运动 '+Life.dayTypes(all.filter(r=>r.date.startsWith(date.slice(0,7)))).size+' 天';
-    list('reconciliation-list',byDate(Life.all(state,'reconciliations')),'暂无对账',r=>[r.date,r.reason||r.note||'余额核对',r.before+' → '+r.confirmed+' 节']);
-    list('equipment-list',byDate(Life.all(state,'equipment')),'暂无装备',r=>[r.name,Life.types[r.type]+' · '+Life.statuses[r.status],r.cents===null?'':money(r.cents)],gearDetails);
+    controls.forEach((control,i)=>control.setAttribute('aria-pressed',String(i===initial)));
+    group.append(...controls);
+    return group;
   }
-  return {setup,renderExtras,net,activityEditor};
+  return {segmented,dayDetails,activityEditor,equipmentEditor,stringEditor,reconcile};
 })();

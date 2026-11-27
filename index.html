@@ -3,59 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#F4F7FA">
+<meta name="theme-color" content="#F5F8F8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>羽球日记</title>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192.png">
-<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./prototype.css">
 <script defer src="./life.js"></script>
 <script defer src="./ledger.js"></script>
 <script defer src="./cloud-config.js"></script>
 <script defer src="./cloud.js"></script>
 <script defer src="./life-ui.js"></script>
+<script defer src="./prototype-ui.js"></script>
 <script defer src="./app.js"></script>
 </head>
-<body><main>
-<header><div><small class="wordmark">MY BADMINTON</small><h1>羽球日记</h1><small id="today"></small></div><span id="sync-status" role="status" hidden></span><button id="settings" class="icon-button" aria-label="设置"></button></header>
-<p id="warning" class="notice" role="alert" hidden></p>
-<section id="home-page">
-  <article class="card balance"><p>剩余课时</p><div><strong id="remaining" class="big">—</strong> 节</div>
-    <progress id="progress" max="100" value="100" aria-label="课时剩余比例"></progress>
-    <div class="metrics three"><div>累计消课<b id="used"></b></div><div>累计新购<b id="bought"></b></div><div>预计剩余<b id="weeks"></b></div></div>
-  </article>
-  <article class="card"><div class="heading"><h2>本周训练</h2><small id="week-state"></small></div><div id="week-calendar" class="calendar"></div>
-    <button id="quick" class="primary">完成今日训练 · −1节</button>
-    <div class="actions"><button id="backfill">补记课程</button><button id="buy">购买课时</button><button id="undo" hidden>撤销最近记课</button></div>
-  </article>
-  <article class="card"><div class="heading"><div><h2>本月羽毛球开销</h2><strong id="home-spend" class="mid"></strong></div><button id="quick-expense">新增支出</button></div></article>
-  <article class="card"><h2>最近记录</h2><div id="recent"></div></article>
-</section>
-<section id="history-page" hidden>
-  <article class="card"><div class="heading"><h2>课时流水</h2><button id="new-record">新增流水</button></div>
-  <div class="fields"><label>起始日期<input id="from" type="date"></label><label>结束日期<input id="to" type="date"></label></div>
-  <label>流水类型<select id="kind-filter"></select></label><div id="history"></div></article>
-</section>
-<section id="expenses-page" hidden>
-  <article class="card"><div class="heading"><h2>运动开销</h2><button id="new-expense">新增支出</button></div>
-  <div class="fields"><label>统计范围<select id="period"><option value="month">按月</option><option value="year">按年</option></select></label><label><span id="period-label">月份</span><input id="period-value" type="month"></label></div>
-  <label class="toggle"><input id="include-purchases" type="checkbox" checked>包含一次性培训购课支出</label>
-  <div class="metrics"><div>累计支出<b id="spend"></b></div><div>支出笔数<b id="expense-count"></b></div></div>
-  <div id="expense-summary" class="metrics"></div><div id="budget-status"></div><div id="expense-chart" class="chart"></div><div id="expense-breakdown"></div></article>
-  <article class="card"><h2>支出明细</h2><label>分类筛选<select id="category-filter"></select></label><div id="expense-list"></div></article>
-</section>
-<section id="stats-page" hidden>
-  <article class="card"><h2>训练统计</h2><div id="training-metrics" class="metrics"></div>
-    <p class="hint">耗尽日期按当前每周训练目标估算。实际训练安排可能改变此日期。</p><label>训练日历月份<input id="calendar-month" type="month"></label><div id="month-calendar" class="calendar"></div>
-  </article>
-  <article class="card"><h2>消费统计</h2><label>年份<input id="stats-year" type="number" min="1900" max="9999" step="1"></label>
-  <div id="spend-metrics" class="metrics"></div><div id="trend" class="chart"></div><div id="trend-values" class="metrics three"></div><div id="annual-categories" class="metrics"></div></article>
-  <article class="card"><h2>购课与消耗成本</h2><div id="cost-metrics" class="metrics"></div><small>按日期先购先用。每笔实付平摊到购买及随购赠送课时。退课优先移除最近批次的未用课时。期初、独立赠送和校准增加的课时缺少单价时记为未知。历史欠课抵扣不计为本期训练。</small></article>
-</section>
-<p id="status" class="status" role="status" aria-live="polite"></p>
-</main>
-<nav aria-label="底部导航"><div id="nav"></div></nav>
-<dialog id="editor"><form id="editor-form"><div class="heading"><h2 id="editor-title"></h2><button id="close" type="button" aria-label="关闭">关闭</button></div><div id="editor-fields"></div><p id="editor-error" class="error" role="alert"></p><button id="save-editor" class="primary" type="submit">保存</button></form></dialog>
+<body><main id="prototype"></main><dialog id="editor"><form id="editor-form" class="sheet"><div class="heading"><button id="close" type="button" class="link" aria-label="关闭">取消</button><h2 id="editor-title"></h2><button id="save-top" class="link" type="submit">保存</button></div><div id="editor-fields"></div><p id="editor-error" class="error" role="alert"></p><button id="save-editor" class="primary" type="submit">保存</button></form></dialog>
 <input id="import-file" type="file" accept=".json,application/json" hidden>
 </body>
 </html>

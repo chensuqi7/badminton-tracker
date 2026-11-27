@@ -1,6 +1,6 @@
 const PREFIX = 'badminton:' + self.registration.scope + ':';
-const CACHE = PREFIX + '3.1.0-life.1';
-const FILES = ['./', './index.html', './manifest.json','./style.css','./life.js','./life-ui.js','./ledger.js','./app.js','./cloud.js','./cloud-config.js', './icon-192.png', './icon-512.png'];
+const CACHE = PREFIX + '3.1.0-life.9';
+const FILES = ['./', './index.html', './manifest.json','./prototype.css','./prototype-ui.js','./life.js','./life-ui.js','./ledger.js','./app.js','./cloud.js','./cloud-config.js', './icon-192.png', './icon-512.png'];
 const urls = FILES.map(file => new URL(file, self.registration.scope).href);
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE)
